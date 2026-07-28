@@ -1,0 +1,26 @@
+{{ define "main" }}
+<article class="post-single">
+  <!-- Hero de la imagen -->
+  <div class="project-hero" style="position: relative; width: 100vw; height: 60vh; max-height: 600px; margin-left: calc(-50vw + 50%); overflow: hidden; display: flex; align-items: center; justify-content: center; margin-top: -2rem;">
+    
+    {{- if .Params.cover.image }}
+      <!-- Se añade object-position: center bottom; -->
+      <img src="{{ .Params.cover.image }}" alt="{{ .Params.cover.alt }}" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center bottom; z-index: 1; filter: brightness(0.4);">
+    {{- end }}
+    
+    <div style="position: relative; z-index: 2; text-align: center; color: white; padding: 0 20px;">
+      <h1 style="font-size: 3.5rem; margin-bottom: 0; font-weight: 300; letter-spacing: 2px;">{{ .Title }}</h1>
+    </div>
+  </div>
+
+  <!-- Descripción -->
+  <div class="project-description" style="max-width: 800px; margin: 2rem auto; text-align: center; font-size: 1.2rem; opacity: 0.8; font-style: italic;">
+    {{ .Description }}
+  </div>
+
+  <!-- Contenido de Markdown -->
+  <div class="post-content" style="max-width: 800px; margin: 0 auto;">
+    {{ .Content }}
+  </div>
+</article>
+{{ end }}

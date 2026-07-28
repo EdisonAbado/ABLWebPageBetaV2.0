@@ -1,0 +1,16 @@
+{{ $id := .Get "id" | default "miGrafico" }}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<div style="width: 100%; margin: 2rem auto; background: rgba(255,255,255,0.02); padding: 1rem; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;">
+    <canvas id="{{ $id }}"></canvas>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const ctx = document.getElementById('{{ $id }}').getContext('2d');
+    
+    // AQUÍ ESTÁ EL SECRETO: Esto inyecta el código que escribas en el Markdown
+    {{ .Inner | safeJS }}
+});
+</script>

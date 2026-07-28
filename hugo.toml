@@ -1,5 +1,5 @@
 baseURL = 'https://abadolab.com/'  # Aquí luego pondremos el de Namecheap
-languageCode = 'es-es'              # Cambiamos a español
+languageCode = 'es-PE'              # Cambiamos a español
 title = 'Abado Lab'         # Lo que aparecerá en la pestaña del navegador
 theme = 'PaperMod'
 
@@ -31,4 +31,7 @@ theme = 'PaperMod'
             url = "/fotografia/contacto/"
             weight = 1
 
+
+    [markup.goldmark.renderer]
+        unsafe = true
     
