@@ -35,3 +35,6 @@ theme = 'PaperMod'
     [markup.goldmark.renderer]
         unsafe = true
     
+    [params]
+        defaultTheme = "dark"
+        disableThemeToggle = true
