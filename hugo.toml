@@ -1,0 +1,34 @@
+baseURL = 'https://abadolab.com/'  # Aquí luego pondremos el de Namecheap
+languageCode = 'es-es'              # Cambiamos a español
+title = 'Abado Lab'         # Lo que aparecerá en la pestaña del navegador
+theme = 'PaperMod'
+
+
+
+
+
+[menu]
+
+# 2. Pestaña principal de Ingeniería
+    [[menu.main]]
+        identifier = "ingenieria"
+        name = "Ingeniería y Sistemas Dinámicos"
+        url = "/ingenieria/"
+        weight = 10
+
+# 1. Pestaña principal de Fotografía
+    [[menu.main]]
+        identifier = "fotografia"
+        name = "Fotografía Documental"
+        url = "/fotografia/"
+        weight = 20
+
+    # 1.1 Sub-pestaña de Contacto (Anidada dentro de Fotografía)
+        [[menu.main]]
+            parent = "fotografia"
+            identifier = "contacto"
+            name = "Contacto"
+            url = "/fotografia/contacto/"
+            weight = 1
+
+    
