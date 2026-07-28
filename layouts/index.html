@@ -1,6 +1,5 @@
 {{ define "main" }}
 <style>
-    /* Ocultar elementos por defecto de PaperMod */
     .header, .footer { display: none !important; }
     
     .main {
@@ -9,11 +8,10 @@
         margin: 0 !important;
     }
 
-    /* Contenedor principal a pantalla completa */
     .hero-container {
         width: 100vw;
         height: 100vh;
-        /* Cambia el nombre de la imagen por el tuyo */
+        /* La primera imagen carga por defecto mediante CSS */
         background-image: url('/img/portada-01.png'); 
         background-size: cover;
         background-position: center;
@@ -27,18 +25,18 @@
         text-align: center;
         padding: 20px;
         box-sizing: border-box;
+        /* Transición suave al cambiar el fondo */
+        transition: background-image 1.5s ease-in-out;
     }
 
-    /* Capa oscura sutil (opcional) para garantizar la lectura del texto */
     .hero-container::before {
         content: '';
         position: absolute;
         inset: 0;
-        background: rgba(0, 0, 0, 0.3); /* Ajusta el 0.3 si quieres oscurecer más o menos la foto */
+        background: rgba(0, 0, 0, 0.4); 
         z-index: 1;
     }
 
-    /* Contenido central */
     .hero-content {
         position: relative;
         z-index: 2;
@@ -65,7 +63,6 @@
         letter-spacing: 1px;
     }
 
-    /* Botones / Enlaces */
     .hero-links {
         display: flex;
         gap: 2rem;
@@ -88,7 +85,6 @@
         border-color: #ffffff;
     }
 
-    /* Pie de página absoluto */
     .hero-footer {
         position: absolute;
         bottom: 25px;
@@ -100,7 +96,6 @@
         text-transform: uppercase;
     }
 
-    /* Adaptación para celulares */
     @media (max-width: 768px) {
         .hero-title { font-size: 2.5rem; letter-spacing: 4px; }
         .hero-subtitle { font-size: 1rem; }
@@ -115,11 +110,10 @@
     }
 </style>
 
-<div class="hero-container">
+<div class="hero-container" id="hero">
     <div class="hero-content">
         <h1 class="hero-title">Abado Lab</h1>
-        <!-- Edita tu texto corto aquí -->
-        <p class="hero-subtitle">Desarrollo tecnológico y exploraciones visuales</p> 
+        <p class="hero-subtitle">Exploraciones visuales y desarrollo tecnológico</p> 
         
         <div class="hero-links">
             <a href="/ingenieria/">Ingeniería y Sistemas Dinámicos</a>
@@ -131,4 +125,31 @@
         Cusco, Perú 2026 &copy; Todos los derechos reservados
     </div>
 </div>
+
+<script>
+    // 1. Configuración de imágenes (Añade o quita las que necesites)
+    const imagenesPortada = [
+        '/img/portada-01.png',
+        '/img/portada-02.png',
+        '/img/portada-03.png'
+    ];
+    
+    // 2. Configura el tiempo de refresco en milisegundos (5000 = 5 segundos)
+    const tiempoRefresco = 5000;
+
+    // Precarga silenciosa para evitar parpadeos en redes lentas
+    imagenesPortada.forEach(src => {
+        const img = new Image();
+        img.src = src;
+    });
+
+    let indiceActual = 0;
+    const heroElement = document.getElementById('hero');
+
+    // Bucle infinito que cambia la imagen
+    setInterval(() => {
+        indiceActual = (indiceActual + 1) % imagenesPortada.length;
+        heroElement.style.backgroundImage = `url('${imagenesPortada[indiceActual]}')`;
+    }, tiempoRefresco);
+</script>
 {{ end }}
