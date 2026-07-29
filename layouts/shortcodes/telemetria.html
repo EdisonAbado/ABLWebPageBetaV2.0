@@ -1,0 +1,65 @@
+<div id="telemetry-container" style="border: 1px solid #ddd; padding: 20px; border-radius: 8px;">
+  <!-- Aquí luego pondremos tu gráfico (ej. Chart.js) -->
+  <div id="grafico-estatico" style="height: 250px; background: #f9f9f9; display: flex; align-items: center; justify-content: center; margin-bottom: 15px;">
+    [Gráfico estático cargando datos de prueba locales]
+  </div>
+
+  <button id="btn-conectar" style="background: #0055ff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+    Conectar a Telemetría en Vivo
+  </button>
+  <p id="status-msg" style="color: #666; font-size: 0.9em; margin-top: 10px; font-family: monospace;"></p>
+</div>
+
+<!-- Usamos type="module" para poder importar Firebase directamente desde los servidores de Google -->
+<script type="module">
+  // Importamos solo lo estrictamente necesario (App y Firestore)
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+  import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+  // Tu configuración exacta
+  const firebaseConfig = {
+    apiKey: "AIzaSyCp0yjOUCc0WBk5Ac2A6mGUMc0RW59Jxss",
+    authDomain: "microclima-abadolab-v2-0.firebaseapp.com",
+    projectId: "microclima-abadolab-v2-0",
+    storageBucket: "microclima-abadolab-v2-0.firebasestorage.app",
+    messagingSenderId: "59855807409",
+    appId: "1:59855807409:web:e796da68be16548f809390"
+  };
+
+  const btnConectar = document.getElementById('btn-conectar');
+  const statusMsg = document.getElementById('status-msg');
+
+  btnConectar.addEventListener('click', () => {
+    // 1. Pedir contraseña (el bloqueo contra bots y visitas no autorizadas)
+    const password = prompt("Introduce la contraseña de acceso para datos en vivo:");
+    
+    // 2. Verificar contraseña (puedes cambiar "admin2026" por la que quieras)
+    if (password === "admin14882026") {
+      statusMsg.innerText = "Autenticando y conectando a Firestore...";
+      btnConectar.disabled = true;
+      btnConectar.style.background = "#ccc";
+
+      // 3. Inicializar Firebase SOLO después de poner la clave correcta
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+
+      // 4. Escuchar el documento donde el ESP32 escribirá los promedios
+      // Asumimos: Colección = 'telemetria', Documento = 'estado_actual'
+      const docRef = doc(db, "telemetria", "estado_actual");
+      
+      // onSnapshot escucha los datos en tiempo real. Si el ESP32 actualiza, esto se dispara solo.
+      onSnapshot(docRef, (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          statusMsg.innerText = "Última actualización: " + JSON.stringify(data);
+          console.log("Datos recibidos:", data);
+          // ¡Aquí inyectaremos los datos al gráfico web más adelante!
+        } else {
+          statusMsg.innerText = "Conectado, pero aún no hay datos del ESP32.";
+        }
+      });
+    } else {
+      alert("Contraseña incorrecta. Se mantiene la vista estática.");
+    }
+  });
+</script>
