@@ -28,13 +28,13 @@ description: "Edison Abado"
 ![Rayo de luz en Cusco, enero del 2025](main-07.jpg) 
 
 *Chita Saymay (Centro Cultural de Formación y Difusión Artística Amauta) en el Tikapallana, Tambobamba, 2 de marzo del 2024*
-![Chita Saymay (Centro Cultural de Formación y Difusión Artística Amauta) en el Tikapallana, Tambobamba, 2 de marzo del 2024](main-08.JPG) 
+![Chita Saymay (Centro Cultural de Formación y Difusión Artística Amauta) en el Tikapallana, Tambobamba, 2 de marzo del 2024](main-08.jpg) 
 
 *Qhaswa Costumbrista de Chumbivilcas (Centro Cultural de Formación y Difusión Artística Amauta) en Langui, 24 de noviembre del 2024*
-![Qhaswa Costumbrista de Chumbivilcas (Centro Cultural de Formación y Difusión Artística Amauta) en Langui, 24 de noviembre del 2024](main-09.JPG) 
+![Qhaswa Costumbrista de Chumbivilcas (Centro Cultural de Formación y Difusión Artística Amauta) en Langui, 24 de noviembre del 2024](main-09.jpg) 
 
 *Unay Carnaval (Centro Cultural de Formación y Difusión Artística Amauta) en el Cañon de Tinajani, 6 de junio del 2025*
-![Unay Carnaval (Centro Cultural de Formación y Difusión Artística Amauta) en el Cañon de Tinajani, 6 de junio del 2025](main-10.JPG) 
+![Unay Carnaval (Centro Cultural de Formación y Difusión Artística Amauta) en el Cañon de Tinajani, 6 de junio del 2025](main-10.jpg) 
 
 ---
 
