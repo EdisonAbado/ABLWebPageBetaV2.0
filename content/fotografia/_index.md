@@ -33,7 +33,7 @@ description: "Edison Abado"
 *Qhaswa Costumbrista de Chumbivilcas (Centro Cultural de Formación y Difusión Artística Amauta) en Langui, 24 de noviembre del 2024*
 ![Qhaswa Costumbrista de Chumbivilcas (Centro Cultural de Formación y Difusión Artística Amauta) en Langui, 24 de noviembre del 2024](main-09.jpg) 
 
-*Unay Carnaval (Centro Cultural de Formación y Difusión Artística Amauta) en el Cañon de Tinajani, 6 de junio del 2025*
+*Unay Carnaval Soltera Suway (Centro Cultural de Formación y Difusión Artística Amauta) en el Cañon de Tinajani, 6 de junio del 2025*
 ![Unay Carnaval (Centro Cultural de Formación y Difusión Artística Amauta) en el Cañon de Tinajani, 6 de junio del 2025](main-10.jpg) 
 
 ---
