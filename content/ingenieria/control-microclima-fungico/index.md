@@ -17,8 +17,6 @@ Este proyecto aborda la regulación precisa de variables ambientales para el des
 
 ## Modelo Dinámico
 
-# Modelo Dinámico V2
-
 Para el diseño del controlador, partimos de una representación simplificada del sistema térmico:
 
 $$ \dot{x}(t) = Ax(t) + Bu(t) + E w(t) $$
