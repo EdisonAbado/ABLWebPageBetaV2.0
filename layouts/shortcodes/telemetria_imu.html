@@ -1,4 +1,4 @@
-<!-- layouts/shortcodes/telemetria.html -->
+<!-- layouts/shortcodes/telemetria_imu.html -->
 <div id="telemetry-box" style="border: 1px solid rgba(255,255,255,0.15); padding: 25px; border-radius: 10px; background: #161b22; color: #e6edf3; font-family: system-ui, sans-serif; max-width: 650px; margin: 2rem auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
     
     <h3 style="margin-top: 0; color: #58a6ff; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
@@ -11,31 +11,35 @@
         
         <div style="display: flex; justify-content: center; gap: 10px; margin-top: 15px;">
             <input type="password" id="input-pass" placeholder="Contraseña..." style="padding: 10px 14px; border-radius: 6px; border: 1px solid #30363d; background: #0d1117; color: white; outline: none; width: 220px; font-size: 14px;">
-            <button id="btn-login" style="background: #238636; color: white; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s;">
+            <button type="button" id="btn-login" style="background: #238636; color: white; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s;">
                 Acceder
             </button>
         </div>
         
-        <p id="auth-msg" style="margin-top: 15px; font-size: 0.85em; font-family: monospace; color: #8b949e;"></p>
+        <p id="auth-msg" style="margin-top: 15px; font-size: 0.85em; font-family: monospace; min-height: 20px; color: #8b949e;"></p>
+        
+        <button type="button" id="btn-reset-bloqueo" style="background: transparent; border: none; color: #484f58; font-size: 0.75em; cursor: pointer; margin-top: 10px; text-decoration: underline;">
+            (Reiniciar intentos de prueba)
+        </button>
     </div>
 
-    <!-- PANEL 2: DESCARGA (Inicia oculto hasta autenticar) -->
+    <!-- PANEL 2: DESCARGA -->
     <div id="download-panel" style="display: none; margin-top: 20px;">
         <div style="background: rgba(56, 139, 253, 0.1); border-left: 4px solid #58a6ff; padding: 12px; border-radius: 4px; font-size: 0.88em; margin-bottom: 20px; color: #c9d1d9;">
-            ✅ <strong>Autenticación exitosa.</strong> Selecciona el día para descargar el CSV unificado listo para MATLAB.
+            ✅ <strong>Acceso concedido.</strong> Ingresa el día que deseas descargar de la base de datos:
         </div>
 
         <div style="margin-bottom: 15px;">
-            <label style="display: block; font-size: 0.85em; margin-bottom: 6px; color: #8b949e;">Formato de Fecha (ej: <code>26_10_11</code> o <code>261011</code>):</label>
+            <label style="display: block; font-size: 0.85em; margin-bottom: 6px; color: #8b949e;">Fecha a descargar (ej: <code>26_10_11</code> o <code>261011</code>):</label>
             <div style="display: flex; gap: 10px;">
                 <input type="text" id="fecha-input" placeholder="26_10_11" value="26_10_11" style="flex: 1; padding: 10px; border-radius: 6px; border: 1px solid #30363d; background: #0d1117; color: white; font-family: monospace; font-size: 15px;">
-                <button id="btn-descargar" style="background: #1f6feb; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px;">
+                <button type="button" id="btn-descargar" style="background: #1f6feb; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold;">
                     ⬇ Descargar CSV
                 </button>
             </div>
         </div>
 
-        <!-- Barra de Progreso y Estado -->
+        <!-- Progreso -->
         <div id="progress-container" style="display: none; margin-top: 20px;">
             <div style="background: #21262d; border-radius: 6px; height: 10px; overflow: hidden;">
                 <div id="progress-bar" style="background: #238636; width: 0%; height: 100%; transition: width 0.3s;"></div>
@@ -45,197 +49,195 @@
     </div>
 </div>
 
-<!-- SDK de Firebase en Módulo -->
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-import { getFirestore, collection, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+<script>
+(function() {
+    const PROJECT_ID = "microclima-abadolab-v2-0";
+    
+    // Hashes SHA-256 (Tus contraseñas reales jamás aparecen en GitHub)
+    const HASHES_VALIDOS = [
+        "9b961d91165ac3ed7814a8acc2149d2c555449bc7d35c270da4675e7f6ecfb7c", // Control14882026
+        "9bfafa826efbb0900ead5786e0498fb8c4023365b141ca9f0e144f9d50dc0ee1"  // admin14882026
+    ];
+    
+    const TIEMPO_BLOQUEO_MS = 5 * 60 * 1000; // 5 minutos
 
-const firebaseConfig = {
-    apiKey: "AIzaSyCp0yjOUCc0WBk5Ac2A6mGUMc0RW59Jxss",
-    authDomain: "microclima-abadolab-v2-0.firebaseapp.com",
-    projectId: "microclima-abadolab-v2-0",
-    storageBucket: "microclima-abadolab-v2-0.firebasestorage.app",
-    messagingSenderId: "59855807409",
-    appId: "1:59855807409:web:e796da68be16548f809390"
-};
-
-// Contraseña configurada
-const CLAVE_CORRECTA = "admin14882026"; 
-const TIEMPO_BLOQUEO_MS = 5 * 60 * 1000; // 5 minutos en milisegundos
-
-// Elementos de la UI
-const authPanel = document.getElementById('auth-panel');
-const downloadPanel = document.getElementById('download-panel');
-const inputPass = document.getElementById('input-pass');
-const btnLogin = document.getElementById('btn-login');
-const authMsg = document.getElementById('auth-msg');
-const fechaInput = document.getElementById('fecha-input');
-const btnDescargar = document.getElementById('btn-descargar');
-const progressContainer = document.getElementById('progress-container');
-const progressBar = document.getElementById('progress-bar');
-const downloadStatus = document.getElementById('download-status');
-
-let db = null;
-
-// =======================================================
-// 1. SISTEMA DE SEGURIDAD (3 INTENTOS Y 5 MINUTOS DE BLOQUEO)
-// =======================================================
-function verificarEstadoBloqueo() {
-    const bloqueadoHasta = localStorage.getItem('auth_bloqueado_hasta');
-    const ahora = Date.now();
-
-    if (bloqueadoHasta && ahora < parseInt(bloqueadoHasta)) {
-        const segundosRestantes = Math.ceil((parseInt(bloqueadoHasta) - ahora) / 1000);
-        const minutos = Math.floor(segundosRestantes / 60);
-        const segs = segundosRestantes % 60;
-
-        inputPass.disabled = true;
-        btnLogin.disabled = true;
-        btnLogin.style.background = "#484f58";
-        authMsg.style.color = "#f85149";
-        authMsg.innerHTML = `⚠️ <strong>Acceso Bloqueado por seguridad.</strong><br>Espera ${minutos}m ${segs < 10 ? '0' : ''}${segs}s para volver a intentar.`;
-        
-        setTimeout(verificarEstadoBloqueo, 1000);
-        return true;
-    } else {
-        if (bloqueadoHasta) {
-            localStorage.removeItem('auth_bloqueado_hasta');
-            localStorage.setItem('auth_intentos', '0');
-        }
-        inputPass.disabled = false;
-        btnLogin.disabled = false;
-        btnLogin.style.background = "#238636";
-        const intentos = parseInt(localStorage.getItem('auth_intentos') || '0');
-        if (intentos > 0) {
-            authMsg.style.color = "#d29922";
-            authMsg.innerText = `Intentos fallidos: ${intentos} de 3.`;
-        } else {
-            authMsg.innerText = "";
-        }
-        return false;
+    async function calcularSHA256(texto) {
+        const buffer = new TextEncoder().encode(texto);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+        return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
     }
-}
 
-verificarEstadoBloqueo();
+    const authPanel = document.getElementById('auth-panel');
+    const downloadPanel = document.getElementById('download-panel');
+    const inputPass = document.getElementById('input-pass');
+    const btnLogin = document.getElementById('btn-login');
+    const authMsg = document.getElementById('auth-msg');
+    const btnResetBloqueo = document.getElementById('btn-reset-bloqueo');
+    const fechaInput = document.getElementById('fecha-input');
+    const btnDescargar = document.getElementById('btn-descargar');
+    const progressContainer = document.getElementById('progress-container');
+    const progressBar = document.getElementById('progress-bar');
+    const downloadStatus = document.getElementById('download-status');
 
-btnLogin.addEventListener('click', () => {
-    if (verificarEstadoBloqueo()) return;
+    let timerBloqueo = null;
 
-    const pass = inputPass.value.trim();
-    if (pass === CLAVE_CORRECTA) {
-        localStorage.setItem('auth_intentos', '0');
-        localStorage.removeItem('auth_bloqueado_hasta');
-        
-        authPanel.style.display = 'none';
-        downloadPanel.style.display = 'block';
+    function verificarEstadoBloqueo() {
+        const bloqueadoHasta = localStorage.getItem('auth_bloqueado_hasta');
+        const ahora = Date.now();
 
-        const app = initializeApp(firebaseConfig);
-        db = getFirestore(app);
-    } else {
-        let intentos = parseInt(localStorage.getItem('auth_intentos') || '0') + 1;
-        localStorage.setItem('auth_intentos', intentos.toString());
+        if (bloqueadoHasta && ahora < parseInt(bloqueadoHasta)) {
+            const segundosRestantes = Math.ceil((parseInt(bloqueadoHasta) - ahora) / 1000);
+            const minutos = Math.floor(segundosRestantes / 60);
+            const segs = segundosRestantes % 60;
 
-        if (intentos >= 3) {
-            const bloqueoTimestamp = Date.now() + TIEMPO_BLOQUEO_MS;
-            localStorage.setItem('auth_bloqueado_hasta', bloqueoTimestamp.toString());
-            verificarEstadoBloqueo();
-        } else {
+            inputPass.disabled = true;
+            btnLogin.disabled = true;
+            btnLogin.style.background = "#484f58";
             authMsg.style.color = "#f85149";
-            authMsg.innerText = `Contraseña incorrecta. Intento ${intentos} de 3.`;
+            authMsg.innerHTML = `⚠️ <strong>Acceso bloqueado por intentos fallidos.</strong><br>Espera ${minutos}m ${segs < 10 ? '0' : ''}${segs}s para reintentar.`;
+            
+            clearTimeout(timerBloqueo);
+            timerBloqueo = setTimeout(verificarEstadoBloqueo, 1000);
+            return true;
+        } else {
+            if (bloqueadoHasta) {
+                localStorage.removeItem('auth_bloqueado_hasta');
+                localStorage.setItem('auth_intentos', '0');
+            }
+            inputPass.disabled = false;
+            btnLogin.disabled = false;
+            btnLogin.style.background = "#238636";
+            
+            const intentos = parseInt(localStorage.getItem('auth_intentos') || '0');
+            if (intentos > 0) {
+                authMsg.style.color = "#d29922";
+                authMsg.innerText = `Intentos fallidos: ${intentos} de 3.`;
+            } else {
+                authMsg.innerText = "";
+            }
+            return false;
         }
     }
-});
 
-inputPass.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') btnLogin.click();
-});
+    verificarEstadoBloqueo();
 
-// =======================================================
-// 2. DESCARGA Y UNIFICACIÓN DE CSV DESDE "historico"
-// =======================================================
-btnDescargar.addEventListener('click', async () => {
-    if (!db) return;
+    btnResetBloqueo.addEventListener('click', function() {
+        localStorage.removeItem('auth_bloqueado_hasta');
+        localStorage.setItem('auth_intentos', '0');
+        verificarEstadoBloqueo();
+        authMsg.style.color = "#58a6ff";
+        authMsg.innerText = "Contador de intentos reiniciado.";
+    });
 
-    // Normalizar la fecha: si escribe "26_10_11" o "2026-10-11", convertir a "261011"
-    let rawFecha = fechaInput.value.trim();
-    let prefijoDoc = rawFecha.replace(/[^0-9]/g, ''); // quita guiones o barras
-    if (prefijoDoc.length === 8 && prefijoDoc.startsWith("20")) {
-        prefijoDoc = prefijoDoc.substring(2); // convierte 20261011 a 261011
-    }
+    btnLogin.addEventListener('click', async function() {
+        if (verificarEstadoBloqueo()) return;
 
-    if (prefijoDoc.length !== 6) {
-        alert("Por favor ingresa una fecha válida con formato AAMMDD (ejemplo: 26_10_11 o 261011).");
-        return;
-    }
+        const pass = inputPass.value.trim();
+        const hashIngresado = await calcularSHA256(pass);
 
-    btnDescargar.disabled = true;
-    btnDescargar.style.background = "#484f58";
-    progressContainer.style.display = "block";
-    progressBar.style.width = "10%";
-    downloadStatus.innerText = `Consultando documentos con prefijo '${prefijoDoc}' en Firestore...`;
+        if (HASHES_VALIDOS.includes(hashIngresado)) {
+            localStorage.setItem('auth_intentos', '0');
+            localStorage.removeItem('auth_bloqueado_hasta');
+            
+            authPanel.style.display = 'none';
+            downloadPanel.style.display = 'block';
+        } else {
+            let intentos = parseInt(localStorage.getItem('auth_intentos') || '0') + 1;
+            localStorage.setItem('auth_intentos', intentos.toString());
 
-    try {
-        // Consultar la colección 'historico'
-        const colRef = collection(db, "historico");
-        const snapshot = await getDocs(colRef);
-
-        // Filtrar solo los documentos del día seleccionado (ej: empieza con "261011")
-        const docsDelDia = [];
-        snapshot.forEach(docSnap => {
-            if (docSnap.id.startsWith(prefijoDoc)) {
-                docsDelDia.push({ id: docSnap.id, data: docSnap.data() });
+            if (intentos >= 3) {
+                const bloqueoTimestamp = Date.now() + TIEMPO_BLOQUEO_MS;
+                localStorage.setItem('auth_bloqueado_hasta', bloqueoTimestamp.toString());
+                verificarEstadoBloqueo();
+            } else {
+                authMsg.style.color = "#f85149";
+                authMsg.innerText = `Contraseña incorrecta. Intento ${intentos} de 3.`;
             }
-        });
+        }
+    });
 
-        if (docsDelDia.length === 0) {
-            downloadStatus.innerText = `No se encontraron paquetes para el día ${rawFecha}.`;
-            progressBar.style.width = "0%";
-            btnDescargar.disabled = false;
-            btnDescargar.style.background = "#1f6feb";
+    inputPass.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') btnLogin.click();
+    });
+
+    btnDescargar.addEventListener('click', async function() {
+        let rawFecha = fechaInput.value.trim();
+        let prefijoDoc = rawFecha.replace(/[^0-9]/g, ''); 
+        if (prefijoDoc.length === 8 && prefijoDoc.startsWith("20")) {
+            prefijoDoc = prefijoDoc.substring(2);
+        }
+
+        if (prefijoDoc.length !== 6) {
+            alert("Ingresa una fecha con formato AAMMDD (ejemplo: 26_10_11 o 261011).");
             return;
         }
 
-        // Ordenar cronológicamente por ID (ej: 261011_0000 -> 261011_2350)
-        docsDelDia.sort((a, b) => a.id.localeCompare(b.id));
+        btnDescargar.disabled = true;
+        btnDescargar.style.background = "#484f58";
+        progressContainer.style.display = "block";
+        progressBar.style.width = "20%";
+        downloadStatus.innerText = `Consultando colección 'historico' en Firestore...`;
 
-        downloadStatus.innerText = `Compilando ${docsDelDia.length} paquetes del día ${rawFecha}...`;
-        progressBar.style.width = "60%";
+        try {
+            const urlRest = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/historico?pageSize=300`;
+            const resp = await fetch(urlRest);
+            if (!resp.ok) throw new Error("Error en respuesta HTTP: " + resp.status);
 
-        // Cabecera estándar para MATLAB
-        let csvCompleto = "Timestamp,Temp_N1_Ext,Hum_N1_Ext,Temp_N2_Int,Hum_N2_Int,EKF_Temp,EKF_Hum,PWM_Hum,PWM_Vent,Flag_Ocup,Flag_Emerg\n";
+            const data = await resp.json();
+            const docs = data.documents || [];
 
-        // Unir todos los chunks de texto
-        docsDelDia.forEach(item => {
-            if (item.data && item.data.datos_csv) {
-                let bloque = item.data.datos_csv.trim();
-                if (bloque.length > 0) {
-                    csvCompleto += bloque + "\n";
+            const docsDelDia = [];
+            docs.forEach(doc => {
+                const docId = doc.name.split('/').pop();
+                if (docId.startsWith(prefijoDoc) && doc.fields && doc.fields.datos_csv) {
+                    docsDelDia.push({
+                        id: docId,
+                        contenido: doc.fields.datos_csv.stringValue || ""
+                    });
                 }
+            });
+
+            if (docsDelDia.length === 0) {
+                downloadStatus.innerText = `No se encontraron datos para el día ${rawFecha}.`;
+                progressBar.style.width = "0%";
+                btnDescargar.disabled = false;
+                btnDescargar.style.background = "#1f6feb";
+                return;
             }
-        });
 
-        progressBar.style.width = "90%";
-        downloadStatus.innerText = "Generando archivo final...";
+            docsDelDia.sort((a, b) => a.id.localeCompare(b.id));
 
-        // Crear Blob y disparar la descarga en el navegador
-        const blob = new Blob([csvCompleto], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.setAttribute("href", url);
-        link.setAttribute("download", `Data_${prefijoDoc}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+            progressBar.style.width = "70%";
+            downloadStatus.innerText = `Uniendo ${docsDelDia.length} paquetes...`;
 
-        progressBar.style.width = "100%";
-        downloadStatus.innerText = `¡Descargado con éxito! (${docsDelDia.length} paquetes unidos).`;
-    } catch (error) {
-        console.error("Error al descargar de Firestore:", error);
-        downloadStatus.innerText = "Error al conectar con Firestore. Revisa la consola.";
-        progressBar.style.width = "0%";
-    } finally {
-        btnDescargar.disabled = false;
-        btnDescargar.style.background = "#1f6feb";
-    }
-});
+            let csvFinal = "Timestamp,Temp_N1_Ext,Hum_N1_Ext,Temp_N2_Int,Hum_N2_Int,EKF_Temp,EKF_Hum,PWM_Hum,PWM_Vent,Flag_Ocup,Flag_Emerg\n";
+
+            docsDelDia.forEach(item => {
+                let txt = item.contenido.trim();
+                if (txt.length > 0) {
+                    csvFinal += txt + "\n";
+                }
+            });
+
+            const blob = new Blob([csvFinal], { type: 'text/csv;charset=utf-8;' });
+            const urlBlob = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = urlBlob;
+            a.download = `Data_${prefijoDoc}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+
+            progressBar.style.width = "100%";
+            downloadStatus.innerText = `¡Descarga completa! Se unieron ${docsDelDia.length} archivos de ${rawFecha}.`;
+        } catch (err) {
+            console.error(err);
+            downloadStatus.innerText = "Error: " + err.message;
+            progressBar.style.width = "0%";
+        } finally {
+            btnDescargar.disabled = false;
+            btnDescargar.style.background = "#1f6feb";
+        }
+    });
+})();
 </script>
