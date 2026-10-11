@@ -52,12 +52,9 @@ new Chart(ctx, {
 
 ---
 
-## Visualización de Datos de la IMU en Tiempo Real
+## Visualización de Datos de Temperatura, Humedad Parámetros Analógicos
 
-Para monitorizar el comportamiento físico y las vibraciones estructurales captadas por el sistema, el ESP32 envía tramas de la unidad inercial (9-DOF) hacia Firestore. 
-
-El siguiente panel extrae esos datos directamente de la nube y grafica una ventana temporal estricta de 2 minutos (240 muestras por variable), referenciada a cero.
-
+Para monitorizar el comportamiento termodinámico y parámetros de control se tiene el siguiente panel para la adquisición de data por una ventana temporal definida.
 {{< telemetria_imu >}}
 
 ---

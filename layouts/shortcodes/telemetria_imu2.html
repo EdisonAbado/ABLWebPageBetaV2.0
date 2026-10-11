@@ -1,0 +1,129 @@
+<!-- layouts/shortcodes/telemetria_imu.html -->
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+
+<div id="telemetry-container" style="border: 1px solid rgba(255,255,255,0.1); padding: 20px; border-radius: 8px; background: rgba(255,255,255,0.02); margin: 2rem 0;">
+    
+    <div id="controls-container" style="text-align: center; margin-bottom: 20px;">
+        <button id="btn-conectar-imu" style="background: #2980b9; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.3s;">
+            Conectar a Telemetría IMU en Vivo
+        </button>
+        <p id="status-imu" style="color: #7f8c8d; font-size: 0.9em; margin-top: 10px; font-family: monospace;">Esperando autenticación...</p>
+    </div>
+
+    <!-- Contenedores de los gráficos (Inician ocultos) -->
+    <div id="dashboard-9dof" style="width: 100%; height: 700px; display: none;"></div>
+    <div id="dashboard-accel" style="width: 100%; height: 350px; display: none; margin-top: 30px;"></div>
+    <div id="dashboard-gyro" style="width: 100%; height: 350px; display: none; margin-top: 30px;"></div>
+    <div id="dashboard-mag" style="width: 100%; height: 350px; display: none; margin-top: 30px;"></div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const btnConectar = document.getElementById('btn-conectar-imu');
+    const statusMsg = document.getElementById('status-imu');
+    
+    btnConectar.addEventListener('click', () => {
+        const password = prompt("Introduce la contraseña de acceso:");
+        if (password === "Control14882026") {
+            statusMsg.innerText = "Autenticado. Iniciando enlace con Firestore...";
+            btnConectar.disabled = true;
+            btnConectar.style.background = "#95a5a6";
+            
+            // Mostrar todos los lienzos
+            document.getElementById('dashboard-9dof').style.display = "block";
+            document.getElementById('dashboard-accel').style.display = "block";
+            document.getElementById('dashboard-gyro').style.display = "block";
+            document.getElementById('dashboard-mag').style.display = "block";
+            
+            iniciarDashboard();
+        } else {
+            alert("Contraseña incorrecta. Acceso denegado.");
+        }
+    });
+
+    function iniciarDashboard() {
+        const PROJECT_ID = "microclima-abadolab-v2-0";
+        const URL_PATCH = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/telemetria/en_vivo`;
+
+        // Colores base para X (Azul), Y (Verde), Z (Morado)
+        const cX = '#2980b9', cY = '#27ae60', cZ = '#8e44ad';
+
+        const variables = [
+            { id: 'ax', name: 'Acel X (g)' }, { id: 'ay', name: 'Acel Y (g)' }, { id: 'az', name: 'Acel Z (g)' },
+            { id: 'gx', name: 'Giro X (°/s)' }, { id: 'gy', name: 'Giro Y (°/s)' }, { id: 'gz', name: 'Giro Z (°/s)' },
+            { id: 'mx', name: 'Mag X (µT)' }, { id: 'my', name: 'Mag Y (µT)' }, { id: 'mz', name: 'Mag Z (µT)' }
+        ];
+
+        // 1. Configurar Trazas para la grilla de 9
+        const traces9 = variables.map((v, i) => ({
+            y: [], type: 'scatter', mode: 'lines', name: v.name,
+            line: { color: i % 3 === 0 ? cX : i % 3 === 1 ? cY : cZ, width: 2 },
+            xaxis: `x${i + 1}`, yaxis: `y${i + 1}`
+        }));
+
+        const layout9 = {
+            grid: { rows: 3, columns: 3, pattern: 'independent' },
+            showlegend: false, margin: { t: 30, b: 40, l: 50, r: 20 },
+            paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', font: { color: '#ecf0f1' }
+        };
+
+        // Forzar el cero visual en todos los sub-gráficos
+        variables.forEach((v, i) => {
+            layout9[`yaxis${i === 0 ? '' : i + 1}`] = { 
+                title: v.name, titlefont: { size: 10 },
+                zeroline: true, zerolinewidth: 2, zerolinecolor: 'rgba(231, 76, 60, 0.7)', 
+                gridcolor: 'rgba(255,255,255,0.1)',
+                rangemode: 'tozero' // <- Esto fuerza a que el 0 siempre esté visible
+            };
+            layout9[`xaxis${i === 0 ? '' : i + 1}`] = { gridcolor: 'rgba(255,255,255,0.1)', showticklabels: false }; 
+        });
+
+        // 2. Funciones para crear los gráficos combinados inferiores
+        function crearTrazaCombinada(nombre, color) {
+            return { y: [], type: 'scatter', mode: 'lines', name: nombre, line: { color: color, width: 2 } };
+        }
+
+        function crearLayoutCombinado(titulo) {
+            return {
+                title: titulo, showlegend: true, margin: { t: 40, b: 30, l: 50, r: 20 },
+                paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', font: { color: '#ecf0f1' },
+                yaxis: { 
+                    zeroline: true, zerolinewidth: 2, zerolinecolor: 'rgba(231, 76, 60, 0.7)', 
+                    gridcolor: 'rgba(255,255,255,0.1)', rangemode: 'tozero' 
+                },
+                xaxis: { gridcolor: 'rgba(255,255,255,0.1)', showticklabels: false }
+            };
+        }
+
+        Plotly.newPlot('dashboard-9dof', traces9, layout9);
+        Plotly.newPlot('dashboard-accel', [crearTrazaCombinada('X', cX), crearTrazaCombinada('Y', cY), crearTrazaCombinada('Z', cZ)], crearLayoutCombinado('Acelerómetro Tridimensional (g)'));
+        Plotly.newPlot('dashboard-gyro', [crearTrazaCombinada('X', cX), crearTrazaCombinada('Y', cY), crearTrazaCombinada('Z', cZ)], crearLayoutCombinado('Giroscopio Tridimensional (°/s)'));
+        Plotly.newPlot('dashboard-mag', [crearTrazaCombinada('X', cX), crearTrazaCombinada('Y', cY), crearTrazaCombinada('Z', cZ)], crearLayoutCombinado('Magnetómetro Tridimensional (µT)'));
+
+        // 3. Motor de Inyección de Datos
+        setInterval(async () => {
+            try {
+                const response = await fetch(URL_PATCH);
+                const data = await response.json();
+                
+                if (data.fields && data.fields.datos) {
+                    const lecturas = JSON.parse(data.fields.datos.stringValue); 
+                    const ud = variables.map(v => lecturas.map(l => l[v.id])); // ud = Update Data
+
+                    // Inyectar a la grilla de 9
+                    Plotly.extendTraces('dashboard-9dof', { y: ud }, [0,1,2,3,4,5,6,7,8], 240);
+                    
+                    // Inyectar a los gráficos combinados (pasamos los ejes X, Y, Z respectivos)
+                    Plotly.extendTraces('dashboard-accel', { y: [ud[0], ud[1], ud[2]] }, [0, 1, 2], 240);
+                    Plotly.extendTraces('dashboard-gyro', { y: [ud[3], ud[4], ud[5]] }, [0, 1, 2], 240);
+                    Plotly.extendTraces('dashboard-mag', { y: [ud[6], ud[7], ud[8]] }, [0, 1, 2], 240);
+                    
+                    statusMsg.innerText = `[${new Date().toLocaleTimeString()}] Paquete recibido y graficado.`;
+                }
+            } catch (error) {
+                console.error("Error conectando con Firestore:", error);
+            }
+        }, 5000);
+    }
+});
+</script>

@@ -1,129 +1,241 @@
-<!-- layouts/shortcodes/telemetria_imu.html -->
-<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
-
-<div id="telemetry-container" style="border: 1px solid rgba(255,255,255,0.1); padding: 20px; border-radius: 8px; background: rgba(255,255,255,0.02); margin: 2rem 0;">
+<!-- layouts/shortcodes/telemetria.html -->
+<div id="telemetry-box" style="border: 1px solid rgba(255,255,255,0.15); padding: 25px; border-radius: 10px; background: #161b22; color: #e6edf3; font-family: system-ui, sans-serif; max-width: 650px; margin: 2rem auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
     
-    <div id="controls-container" style="text-align: center; margin-bottom: 20px;">
-        <button id="btn-conectar-imu" style="background: #2980b9; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.3s;">
-            Conectar a Telemetría IMU en Vivo
-        </button>
-        <p id="status-imu" style="color: #7f8c8d; font-size: 0.9em; margin-top: 10px; font-family: monospace;">Esperando autenticación...</p>
+    <h3 style="margin-top: 0; color: #58a6ff; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
+        Descargador de Telemetría - AbadoLab
+    </h3>
+
+    <!-- PANEL 1: AUTENTICACIÓN -->
+    <div id="auth-panel" style="text-align: center; margin-top: 20px;">
+        <p style="font-size: 0.9em; color: #8b949e;">Introduce la clave de acceso para autorizar la descarga:</p>
+        
+        <div style="display: flex; justify-content: center; gap: 10px; margin-top: 15px;">
+            <input type="password" id="input-pass" placeholder="Contraseña..." style="padding: 10px 14px; border-radius: 6px; border: 1px solid #30363d; background: #0d1117; color: white; outline: none; width: 220px; font-size: 14px;">
+            <button id="btn-login" style="background: #238636; color: white; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s;">
+                Acceder
+            </button>
+        </div>
+        
+        <p id="auth-msg" style="margin-top: 15px; font-size: 0.85em; font-family: monospace; color: #8b949e;"></p>
     </div>
 
-    <!-- Contenedores de los gráficos (Inician ocultos) -->
-    <div id="dashboard-9dof" style="width: 100%; height: 700px; display: none;"></div>
-    <div id="dashboard-accel" style="width: 100%; height: 350px; display: none; margin-top: 30px;"></div>
-    <div id="dashboard-gyro" style="width: 100%; height: 350px; display: none; margin-top: 30px;"></div>
-    <div id="dashboard-mag" style="width: 100%; height: 350px; display: none; margin-top: 30px;"></div>
+    <!-- PANEL 2: DESCARGA (Inicia oculto hasta autenticar) -->
+    <div id="download-panel" style="display: none; margin-top: 20px;">
+        <div style="background: rgba(56, 139, 253, 0.1); border-left: 4px solid #58a6ff; padding: 12px; border-radius: 4px; font-size: 0.88em; margin-bottom: 20px; color: #c9d1d9;">
+            ✅ <strong>Autenticación exitosa.</strong> Selecciona el día para descargar el CSV unificado listo para MATLAB.
+        </div>
+
+        <div style="margin-bottom: 15px;">
+            <label style="display: block; font-size: 0.85em; margin-bottom: 6px; color: #8b949e;">Formato de Fecha (ej: <code>26_10_11</code> o <code>261011</code>):</label>
+            <div style="display: flex; gap: 10px;">
+                <input type="text" id="fecha-input" placeholder="26_10_11" value="26_10_11" style="flex: 1; padding: 10px; border-radius: 6px; border: 1px solid #30363d; background: #0d1117; color: white; font-family: monospace; font-size: 15px;">
+                <button id="btn-descargar" style="background: #1f6feb; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px;">
+                    ⬇ Descargar CSV
+                </button>
+            </div>
+        </div>
+
+        <!-- Barra de Progreso y Estado -->
+        <div id="progress-container" style="display: none; margin-top: 20px;">
+            <div style="background: #21262d; border-radius: 6px; height: 10px; overflow: hidden;">
+                <div id="progress-bar" style="background: #238636; width: 0%; height: 100%; transition: width 0.3s;"></div>
+            </div>
+            <p id="download-status" style="font-size: 0.85em; color: #8b949e; font-family: monospace; margin-top: 8px; text-align: center;"></p>
+        </div>
+    </div>
 </div>
 
-<script>
-document.addEventListener("DOMContentLoaded", function() {
-    const btnConectar = document.getElementById('btn-conectar-imu');
-    const statusMsg = document.getElementById('status-imu');
-    
-    btnConectar.addEventListener('click', () => {
-        const password = prompt("Introduce la contraseña de acceso:");
-        if (password === "Control14882026") {
-            statusMsg.innerText = "Autenticado. Iniciando enlace con Firestore...";
-            btnConectar.disabled = true;
-            btnConectar.style.background = "#95a5a6";
-            
-            // Mostrar todos los lienzos
-            document.getElementById('dashboard-9dof').style.display = "block";
-            document.getElementById('dashboard-accel').style.display = "block";
-            document.getElementById('dashboard-gyro').style.display = "block";
-            document.getElementById('dashboard-mag').style.display = "block";
-            
-            iniciarDashboard();
-        } else {
-            alert("Contraseña incorrecta. Acceso denegado.");
+<!-- SDK de Firebase en Módulo -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+import { getFirestore, collection, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+const firebaseConfig = {
+    apiKey: "AIzaSyCp0yjOUCc0WBk5Ac2A6mGUMc0RW59Jxss",
+    authDomain: "microclima-abadolab-v2-0.firebaseapp.com",
+    projectId: "microclima-abadolab-v2-0",
+    storageBucket: "microclima-abadolab-v2-0.firebasestorage.app",
+    messagingSenderId: "59855807409",
+    appId: "1:59855807409:web:e796da68be16548f809390"
+};
+
+// Contraseña configurada
+const CLAVE_CORRECTA = "admin14882026"; 
+const TIEMPO_BLOQUEO_MS = 5 * 60 * 1000; // 5 minutos en milisegundos
+
+// Elementos de la UI
+const authPanel = document.getElementById('auth-panel');
+const downloadPanel = document.getElementById('download-panel');
+const inputPass = document.getElementById('input-pass');
+const btnLogin = document.getElementById('btn-login');
+const authMsg = document.getElementById('auth-msg');
+const fechaInput = document.getElementById('fecha-input');
+const btnDescargar = document.getElementById('btn-descargar');
+const progressContainer = document.getElementById('progress-container');
+const progressBar = document.getElementById('progress-bar');
+const downloadStatus = document.getElementById('download-status');
+
+let db = null;
+
+// =======================================================
+// 1. SISTEMA DE SEGURIDAD (3 INTENTOS Y 5 MINUTOS DE BLOQUEO)
+// =======================================================
+function verificarEstadoBloqueo() {
+    const bloqueadoHasta = localStorage.getItem('auth_bloqueado_hasta');
+    const ahora = Date.now();
+
+    if (bloqueadoHasta && ahora < parseInt(bloqueadoHasta)) {
+        const segundosRestantes = Math.ceil((parseInt(bloqueadoHasta) - ahora) / 1000);
+        const minutos = Math.floor(segundosRestantes / 60);
+        const segs = segundosRestantes % 60;
+
+        inputPass.disabled = true;
+        btnLogin.disabled = true;
+        btnLogin.style.background = "#484f58";
+        authMsg.style.color = "#f85149";
+        authMsg.innerHTML = `⚠️ <strong>Acceso Bloqueado por seguridad.</strong><br>Espera ${minutos}m ${segs < 10 ? '0' : ''}${segs}s para volver a intentar.`;
+        
+        setTimeout(verificarEstadoBloqueo, 1000);
+        return true;
+    } else {
+        if (bloqueadoHasta) {
+            localStorage.removeItem('auth_bloqueado_hasta');
+            localStorage.setItem('auth_intentos', '0');
         }
-    });
+        inputPass.disabled = false;
+        btnLogin.disabled = false;
+        btnLogin.style.background = "#238636";
+        const intentos = parseInt(localStorage.getItem('auth_intentos') || '0');
+        if (intentos > 0) {
+            authMsg.style.color = "#d29922";
+            authMsg.innerText = `Intentos fallidos: ${intentos} de 3.`;
+        } else {
+            authMsg.innerText = "";
+        }
+        return false;
+    }
+}
 
-    function iniciarDashboard() {
-        const PROJECT_ID = "microclima-abadolab-v2-0";
-        const URL_PATCH = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/telemetria/en_vivo`;
+verificarEstadoBloqueo();
 
-        // Colores base para X (Azul), Y (Verde), Z (Morado)
-        const cX = '#2980b9', cY = '#27ae60', cZ = '#8e44ad';
+btnLogin.addEventListener('click', () => {
+    if (verificarEstadoBloqueo()) return;
 
-        const variables = [
-            { id: 'ax', name: 'Acel X (g)' }, { id: 'ay', name: 'Acel Y (g)' }, { id: 'az', name: 'Acel Z (g)' },
-            { id: 'gx', name: 'Giro X (°/s)' }, { id: 'gy', name: 'Giro Y (°/s)' }, { id: 'gz', name: 'Giro Z (°/s)' },
-            { id: 'mx', name: 'Mag X (µT)' }, { id: 'my', name: 'Mag Y (µT)' }, { id: 'mz', name: 'Mag Z (µT)' }
-        ];
+    const pass = inputPass.value.trim();
+    if (pass === CLAVE_CORRECTA) {
+        localStorage.setItem('auth_intentos', '0');
+        localStorage.removeItem('auth_bloqueado_hasta');
+        
+        authPanel.style.display = 'none';
+        downloadPanel.style.display = 'block';
 
-        // 1. Configurar Trazas para la grilla de 9
-        const traces9 = variables.map((v, i) => ({
-            y: [], type: 'scatter', mode: 'lines', name: v.name,
-            line: { color: i % 3 === 0 ? cX : i % 3 === 1 ? cY : cZ, width: 2 },
-            xaxis: `x${i + 1}`, yaxis: `y${i + 1}`
-        }));
+        const app = initializeApp(firebaseConfig);
+        db = getFirestore(app);
+    } else {
+        let intentos = parseInt(localStorage.getItem('auth_intentos') || '0') + 1;
+        localStorage.setItem('auth_intentos', intentos.toString());
 
-        const layout9 = {
-            grid: { rows: 3, columns: 3, pattern: 'independent' },
-            showlegend: false, margin: { t: 30, b: 40, l: 50, r: 20 },
-            paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', font: { color: '#ecf0f1' }
-        };
+        if (intentos >= 3) {
+            const bloqueoTimestamp = Date.now() + TIEMPO_BLOQUEO_MS;
+            localStorage.setItem('auth_bloqueado_hasta', bloqueoTimestamp.toString());
+            verificarEstadoBloqueo();
+        } else {
+            authMsg.style.color = "#f85149";
+            authMsg.innerText = `Contraseña incorrecta. Intento ${intentos} de 3.`;
+        }
+    }
+});
 
-        // Forzar el cero visual en todos los sub-gráficos
-        variables.forEach((v, i) => {
-            layout9[`yaxis${i === 0 ? '' : i + 1}`] = { 
-                title: v.name, titlefont: { size: 10 },
-                zeroline: true, zerolinewidth: 2, zerolinecolor: 'rgba(231, 76, 60, 0.7)', 
-                gridcolor: 'rgba(255,255,255,0.1)',
-                rangemode: 'tozero' // <- Esto fuerza a que el 0 siempre esté visible
-            };
-            layout9[`xaxis${i === 0 ? '' : i + 1}`] = { gridcolor: 'rgba(255,255,255,0.1)', showticklabels: false }; 
+inputPass.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') btnLogin.click();
+});
+
+// =======================================================
+// 2. DESCARGA Y UNIFICACIÓN DE CSV DESDE "historico"
+// =======================================================
+btnDescargar.addEventListener('click', async () => {
+    if (!db) return;
+
+    // Normalizar la fecha: si escribe "26_10_11" o "2026-10-11", convertir a "261011"
+    let rawFecha = fechaInput.value.trim();
+    let prefijoDoc = rawFecha.replace(/[^0-9]/g, ''); // quita guiones o barras
+    if (prefijoDoc.length === 8 && prefijoDoc.startsWith("20")) {
+        prefijoDoc = prefijoDoc.substring(2); // convierte 20261011 a 261011
+    }
+
+    if (prefijoDoc.length !== 6) {
+        alert("Por favor ingresa una fecha válida con formato AAMMDD (ejemplo: 26_10_11 o 261011).");
+        return;
+    }
+
+    btnDescargar.disabled = true;
+    btnDescargar.style.background = "#484f58";
+    progressContainer.style.display = "block";
+    progressBar.style.width = "10%";
+    downloadStatus.innerText = `Consultando documentos con prefijo '${prefijoDoc}' en Firestore...`;
+
+    try {
+        // Consultar la colección 'historico'
+        const colRef = collection(db, "historico");
+        const snapshot = await getDocs(colRef);
+
+        // Filtrar solo los documentos del día seleccionado (ej: empieza con "261011")
+        const docsDelDia = [];
+        snapshot.forEach(docSnap => {
+            if (docSnap.id.startsWith(prefijoDoc)) {
+                docsDelDia.push({ id: docSnap.id, data: docSnap.data() });
+            }
         });
 
-        // 2. Funciones para crear los gráficos combinados inferiores
-        function crearTrazaCombinada(nombre, color) {
-            return { y: [], type: 'scatter', mode: 'lines', name: nombre, line: { color: color, width: 2 } };
+        if (docsDelDia.length === 0) {
+            downloadStatus.innerText = `No se encontraron paquetes para el día ${rawFecha}.`;
+            progressBar.style.width = "0%";
+            btnDescargar.disabled = false;
+            btnDescargar.style.background = "#1f6feb";
+            return;
         }
 
-        function crearLayoutCombinado(titulo) {
-            return {
-                title: titulo, showlegend: true, margin: { t: 40, b: 30, l: 50, r: 20 },
-                paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', font: { color: '#ecf0f1' },
-                yaxis: { 
-                    zeroline: true, zerolinewidth: 2, zerolinecolor: 'rgba(231, 76, 60, 0.7)', 
-                    gridcolor: 'rgba(255,255,255,0.1)', rangemode: 'tozero' 
-                },
-                xaxis: { gridcolor: 'rgba(255,255,255,0.1)', showticklabels: false }
-            };
-        }
+        // Ordenar cronológicamente por ID (ej: 261011_0000 -> 261011_2350)
+        docsDelDia.sort((a, b) => a.id.localeCompare(b.id));
 
-        Plotly.newPlot('dashboard-9dof', traces9, layout9);
-        Plotly.newPlot('dashboard-accel', [crearTrazaCombinada('X', cX), crearTrazaCombinada('Y', cY), crearTrazaCombinada('Z', cZ)], crearLayoutCombinado('Acelerómetro Tridimensional (g)'));
-        Plotly.newPlot('dashboard-gyro', [crearTrazaCombinada('X', cX), crearTrazaCombinada('Y', cY), crearTrazaCombinada('Z', cZ)], crearLayoutCombinado('Giroscopio Tridimensional (°/s)'));
-        Plotly.newPlot('dashboard-mag', [crearTrazaCombinada('X', cX), crearTrazaCombinada('Y', cY), crearTrazaCombinada('Z', cZ)], crearLayoutCombinado('Magnetómetro Tridimensional (µT)'));
+        downloadStatus.innerText = `Compilando ${docsDelDia.length} paquetes del día ${rawFecha}...`;
+        progressBar.style.width = "60%";
 
-        // 3. Motor de Inyección de Datos
-        setInterval(async () => {
-            try {
-                const response = await fetch(URL_PATCH);
-                const data = await response.json();
-                
-                if (data.fields && data.fields.datos) {
-                    const lecturas = JSON.parse(data.fields.datos.stringValue); 
-                    const ud = variables.map(v => lecturas.map(l => l[v.id])); // ud = Update Data
+        // Cabecera estándar para MATLAB
+        let csvCompleto = "Timestamp,Temp_N1_Ext,Hum_N1_Ext,Temp_N2_Int,Hum_N2_Int,EKF_Temp,EKF_Hum,PWM_Hum,PWM_Vent,Flag_Ocup,Flag_Emerg\n";
 
-                    // Inyectar a la grilla de 9
-                    Plotly.extendTraces('dashboard-9dof', { y: ud }, [0,1,2,3,4,5,6,7,8], 240);
-                    
-                    // Inyectar a los gráficos combinados (pasamos los ejes X, Y, Z respectivos)
-                    Plotly.extendTraces('dashboard-accel', { y: [ud[0], ud[1], ud[2]] }, [0, 1, 2], 240);
-                    Plotly.extendTraces('dashboard-gyro', { y: [ud[3], ud[4], ud[5]] }, [0, 1, 2], 240);
-                    Plotly.extendTraces('dashboard-mag', { y: [ud[6], ud[7], ud[8]] }, [0, 1, 2], 240);
-                    
-                    statusMsg.innerText = `[${new Date().toLocaleTimeString()}] Paquete recibido y graficado.`;
+        // Unir todos los chunks de texto
+        docsDelDia.forEach(item => {
+            if (item.data && item.data.datos_csv) {
+                let bloque = item.data.datos_csv.trim();
+                if (bloque.length > 0) {
+                    csvCompleto += bloque + "\n";
                 }
-            } catch (error) {
-                console.error("Error conectando con Firestore:", error);
             }
-        }, 5000);
+        });
+
+        progressBar.style.width = "90%";
+        downloadStatus.innerText = "Generando archivo final...";
+
+        // Crear Blob y disparar la descarga en el navegador
+        const blob = new Blob([csvCompleto], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `Data_${prefijoDoc}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        progressBar.style.width = "100%";
+        downloadStatus.innerText = `¡Descargado con éxito! (${docsDelDia.length} paquetes unidos).`;
+    } catch (error) {
+        console.error("Error al descargar de Firestore:", error);
+        downloadStatus.innerText = "Error al conectar con Firestore. Revisa la consola.";
+        progressBar.style.width = "0%";
+    } finally {
+        btnDescargar.disabled = false;
+        btnDescargar.style.background = "#1f6feb";
     }
 });
 </script>
