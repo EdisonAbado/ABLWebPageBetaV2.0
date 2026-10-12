@@ -30,9 +30,9 @@
         </div>
 
         <div style="margin-bottom: 15px;">
-            <label style="display: block; font-size: 0.85em; margin-bottom: 6px; color: #8b949e;">Fecha a descargar (ej: <code>26_10_11</code> o <code>261011</code>):</label>
+            <label style="display: block; font-size: 0.85em; margin-bottom: 6px; color: #8b949e;">Fecha a descargar (ej: <code>26_10_12</code> o <code>261012</code>):</label>
             <div style="display: flex; gap: 10px;">
-                <input type="text" id="fecha-input" placeholder="26_10_11" value="26_10_11" style="flex: 1; padding: 10px; border-radius: 6px; border: 1px solid #30363d; background: #0d1117; color: white; font-family: monospace; font-size: 15px;">
+                <input type="text" id="fecha-input" placeholder="26_10_12" value="26_10_12" style="flex: 1; padding: 10px; border-radius: 6px; border: 1px solid #30363d; background: #0d1117; color: white; font-family: monospace; font-size: 15px;">
                 <button type="button" id="btn-descargar" style="background: #1f6feb; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold;">
                     ⬇ Descargar CSV
                 </button>
@@ -160,6 +160,9 @@
         if (e.key === 'Enter') btnLogin.click();
     });
 
+    // =========================================================
+    // 4. DESCARGA CON PAGINACIÓN COMPLETA (Lee todas las páginas)
+    // =========================================================
     btnDescargar.addEventListener('click', async function() {
         let rawFecha = fechaInput.value.trim();
         let prefijoDoc = rawFecha.replace(/[^0-9]/g, ''); 
@@ -168,34 +171,52 @@
         }
 
         if (prefijoDoc.length !== 6) {
-            alert("Ingresa una fecha con formato AAMMDD (ejemplo: 26_10_11 o 261011).");
+            alert("Ingresa una fecha con formato AAMMDD (ejemplo: 26_10_12 o 261012).");
             return;
         }
 
         btnDescargar.disabled = true;
         btnDescargar.style.background = "#484f58";
         progressContainer.style.display = "block";
-        progressBar.style.width = "20%";
-        downloadStatus.innerText = `Consultando colección 'historico' en Firestore...`;
+        progressBar.style.width = "10%";
+        downloadStatus.innerText = `Buscando paquetes de '${prefijoDoc}' en Firestore...`;
 
         try {
-            const urlRest = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/historico?pageSize=300`;
-            const resp = await fetch(urlRest);
-            if (!resp.ok) throw new Error("Error en respuesta HTTP: " + resp.status);
-
-            const data = await resp.json();
-            const docs = data.documents || [];
-
             const docsDelDia = [];
-            docs.forEach(doc => {
-                const docId = doc.name.split('/').pop();
-                if (docId.startsWith(prefijoDoc) && doc.fields && doc.fields.datos_csv) {
-                    docsDelDia.push({
-                        id: docId,
-                        contenido: doc.fields.datos_csv.stringValue || ""
-                    });
+            let pageToken = "";
+            let pagina = 1;
+
+            // Bucle que recorre TODAS las páginas de Firestore hasta agotar los datos
+            do {
+                downloadStatus.innerText = `Consultando página ${pagina} de la base de datos... (${docsDelDia.length} encontrados)`;
+                progressBar.style.width = `${Math.min(15 + pagina * 20, 85)}%`;
+
+                let urlRest = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/historico?pageSize=300`;
+                if (pageToken) {
+                    urlRest += `&pageToken=${encodeURIComponent(pageToken)}`;
                 }
-            });
+
+                const resp = await fetch(urlRest);
+                if (!resp.ok) throw new Error("Error en respuesta HTTP: " + resp.status);
+
+                const data = await resp.json();
+                const docs = data.documents || [];
+
+                docs.forEach(doc => {
+                    const docId = doc.name.split('/').pop();
+                    if (docId.startsWith(prefijoDoc) && doc.fields && doc.fields.datos_csv) {
+                        docsDelDia.push({
+                            id: docId,
+                            contenido: doc.fields.datos_csv.stringValue || ""
+                        });
+                    }
+                });
+
+                // Si hay más páginas, Firestore entrega un nuevo pageToken
+                pageToken = data.nextPageToken || "";
+                pagina++;
+
+            } while (pageToken);
 
             if (docsDelDia.length === 0) {
                 downloadStatus.innerText = `No se encontraron datos para el día ${rawFecha}.`;
@@ -205,12 +226,14 @@
                 return;
             }
 
+            // Orden cronológico estricto
             docsDelDia.sort((a, b) => a.id.localeCompare(b.id));
 
-            progressBar.style.width = "70%";
-            downloadStatus.innerText = `Uniendo ${docsDelDia.length} paquetes...`;
+            progressBar.style.width = "90%";
+            downloadStatus.innerText = `Uniendo ${docsDelDia.length} paquetes de ${rawFecha}...`;
 
-            let csvFinal = "Timestamp,Temp_N1_Ext,Hum_N1_Ext,Temp_N2_Int,Hum_N2_Int,EKF_Temp,EKF_Hum,PWM_Hum,PWM_Vent,Flag_Ocup,Flag_Emerg\n";
+            // Cabecera CSV para MATLAB
+            let csvFinal = "Timestamp,Temp_N1_Ext,Hum_N1_Ext,Temp_N2_Int,Hum_N2_Int,ADC_N3,PWM_Hum,PWM_Vent,EKF_Temp,EKF_Hum,EKF_Tw\n";
 
             docsDelDia.forEach(item => {
                 let txt = item.contenido.trim();
@@ -219,6 +242,7 @@
                 }
             });
 
+            // Disparar descarga directa
             const blob = new Blob([csvFinal], { type: 'text/csv;charset=utf-8;' });
             const urlBlob = URL.createObjectURL(blob);
             const a = document.createElement("a");
@@ -230,6 +254,7 @@
 
             progressBar.style.width = "100%";
             downloadStatus.innerText = `¡Descarga completa! Se unieron ${docsDelDia.length} archivos de ${rawFecha}.`;
+
         } catch (err) {
             console.error(err);
             downloadStatus.innerText = "Error: " + err.message;
