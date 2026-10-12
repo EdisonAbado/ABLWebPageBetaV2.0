@@ -1,13 +1,16 @@
 <!-- layouts/shortcodes/telemetria_imu.html -->
-<div id="telemetry-box" style="border: 1px solid rgba(255,255,255,0.15); padding: 25px; border-radius: 10px; background: #161b22; color: #e6edf3; font-family: system-ui, sans-serif; max-width: 650px; margin: 2rem auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+<!-- Librería Plotly para graficar y exportar a imagen -->
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+
+<div id="telemetry-box" style="border: 1px solid rgba(255,255,255,0.15); padding: 25px; border-radius: 10px; background: #161b22; color: #e6edf3; font-family: system-ui, sans-serif; max-width: 900px; margin: 2rem auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
     
     <h3 style="margin-top: 0; color: #58a6ff; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
-        Descargador de Telemetría - AbadoLab
+        Telemetría y Datalogger - AbadoLab
     </h3>
 
     <!-- PANEL 1: AUTENTICACIÓN -->
     <div id="auth-panel" style="text-align: center; margin-top: 20px;">
-        <p style="font-size: 0.9em; color: #8b949e;">Introduce la clave de acceso para autorizar la descarga:</p>
+        <p style="font-size: 0.9em; color: #8b949e;">Introduce la clave de acceso para autorizar el visor:</p>
         
         <div style="display: flex; justify-content: center; gap: 10px; margin-top: 15px;">
             <input type="password" id="input-pass" placeholder="Contraseña..." style="padding: 10px 14px; border-radius: 6px; border: 1px solid #30363d; background: #0d1117; color: white; outline: none; width: 220px; font-size: 14px;">
@@ -23,28 +26,40 @@
         </button>
     </div>
 
-    <!-- PANEL 2: DESCARGA -->
+    <!-- PANEL 2: CONTROLES DE DESCARGA Y GRÁFICO -->
     <div id="download-panel" style="display: none; margin-top: 20px;">
         <div style="background: rgba(56, 139, 253, 0.1); border-left: 4px solid #58a6ff; padding: 12px; border-radius: 4px; font-size: 0.88em; margin-bottom: 20px; color: #c9d1d9;">
-            ✅ <strong>Acceso concedido.</strong> Ingresa el día que deseas descargar de la base de datos:
+            ✅ <strong>Acceso concedido.</strong> Ingresa el día que deseas consultar de la base de datos:
         </div>
 
-        <div style="margin-bottom: 15px;">
-            <label style="display: block; font-size: 0.85em; margin-bottom: 6px; color: #8b949e;">Fecha a descargar (ej: <code>26_10_12</code> o <code>261012</code>):</label>
-            <div style="display: flex; gap: 10px;">
-                <input type="text" id="fecha-input" placeholder="26_10_12" value="26_10_12" style="flex: 1; padding: 10px; border-radius: 6px; border: 1px solid #30363d; background: #0d1117; color: white; font-family: monospace; font-size: 15px;">
-                <button type="button" id="btn-descargar" style="background: #1f6feb; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold;">
-                    ⬇ Descargar CSV
-                </button>
+        <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 15px;">
+            <div style="flex: 1; min-width: 180px;">
+                <input type="text" id="fecha-input" placeholder="26_10_12" value="26_10_12" style="width: 100%; box-sizing: border-box; padding: 10px; border-radius: 6px; border: 1px solid #30363d; background: #0d1117; color: white; font-family: monospace; font-size: 15px;">
             </div>
+            <button type="button" id="btn-descargar" style="background: #1f6feb; color: white; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-weight: bold;">
+                ⬇ Descargar CSV
+            </button>
+            <button type="button" id="btn-graficar" style="background: #8957e5; color: white; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-weight: bold;">
+                📈 Graficar Día
+            </button>
+            <button type="button" id="btn-descargar-img" style="display: none; background: #238636; color: white; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-weight: bold;">
+                📷 Guardar Imagen (PNG)
+            </button>
         </div>
 
-        <!-- Progreso -->
-        <div id="progress-container" style="display: none; margin-top: 20px;">
+        <!-- Barra de Progreso -->
+        <div id="progress-container" style="display: none; margin-top: 15px; margin-bottom: 20px;">
             <div style="background: #21262d; border-radius: 6px; height: 10px; overflow: hidden;">
                 <div id="progress-bar" style="background: #238636; width: 0%; height: 100%; transition: width 0.3s;"></div>
             </div>
             <p id="download-status" style="font-size: 0.85em; color: #8b949e; font-family: monospace; margin-top: 8px; text-align: center;"></p>
+        </div>
+
+        <!-- CONTENEDOR DE LOS 3 GRÁFICOS (Inicia oculto) -->
+        <div id="chart-area" style="display: none; margin-top: 25px;">
+            <div id="plot-temp" style="width: 100%; height: 280px; margin-bottom: 20px;"></div>
+            <div id="plot-hum"  style="width: 100%; height: 280px; margin-bottom: 20px;"></div>
+            <div id="plot-act"  style="width: 100%; height: 260px;"></div>
         </div>
     </div>
 </div>
@@ -53,13 +68,12 @@
 (function() {
     const PROJECT_ID = "microclima-abadolab-v2-0";
     
-    // Hashes SHA-256 (Tus contraseñas reales jamás aparecen en GitHub)
     const HASHES_VALIDOS = [
         "9b961d91165ac3ed7814a8acc2149d2c555449bc7d35c270da4675e7f6ecfb7c", // Control14882026
         "9bfafa826efbb0900ead5786e0498fb8c4023365b141ca9f0e144f9d50dc0ee1"  // admin14882026
     ];
     
-    const TIEMPO_BLOQUEO_MS = 5 * 60 * 1000; // 5 minutos
+    const TIEMPO_BLOQUEO_MS = 5 * 60 * 1000;
 
     async function calcularSHA256(texto) {
         const buffer = new TextEncoder().encode(texto);
@@ -75,11 +89,16 @@
     const btnResetBloqueo = document.getElementById('btn-reset-bloqueo');
     const fechaInput = document.getElementById('fecha-input');
     const btnDescargar = document.getElementById('btn-descargar');
+    const btnGraficar = document.getElementById('btn-graficar');
+    const btnDescargarImg = document.getElementById('btn-descargar-img');
     const progressContainer = document.getElementById('progress-container');
     const progressBar = document.getElementById('progress-bar');
     const downloadStatus = document.getElementById('download-status');
+    const chartArea = document.getElementById('chart-area');
 
     let timerBloqueo = null;
+    let datosDelDiaEnMemoria = null;
+    let fechaActualGraficada = "";
 
     function verificarEstadoBloqueo() {
         const bloqueadoHasta = localStorage.getItem('auth_bloqueado_hasta');
@@ -161,88 +180,83 @@
     });
 
     // =========================================================
-    // 4. DESCARGA CON PAGINACIÓN COMPLETA (Lee todas las páginas)
+    // FUNCIÓN COMÚN: DESCARGAR PAQUETES DE FIRESTORE CON PAGINACIÓN
+    // =========================================================
+    async function obtenerDatosDeFirestore(prefijoDoc) {
+        const docsDelDia = [];
+        let pageToken = "";
+        let pagina = 1;
+
+        do {
+            downloadStatus.innerText = `Consultando base de datos (Página ${pagina})... (${docsDelDia.length} paquetes encontrados)`;
+            progressBar.style.width = `${Math.min(15 + pagina * 20, 85)}%`;
+
+            let urlRest = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/historico?pageSize=300`;
+            if (pageToken) {
+                urlRest += `&pageToken=${encodeURIComponent(pageToken)}`;
+            }
+
+            const resp = await fetch(urlRest);
+            if (!resp.ok) throw new Error("Error en respuesta HTTP: " + resp.status);
+
+            const data = await resp.json();
+            const docs = data.documents || [];
+
+            docs.forEach(doc => {
+                const docId = doc.name.split('/').pop();
+                if (docId.startsWith(prefijoDoc) && doc.fields && doc.fields.datos_csv) {
+                    const contenido = doc.fields.datos_csv.stringValue || "";
+                    if (contenido.trim().length > 0) {
+                        docsDelDia.push({ id: docId, contenido: contenido });
+                    }
+                }
+            });
+
+            pageToken = data.nextPageToken || "";
+            pagina++;
+        } while (pageToken);
+
+        docsDelDia.sort((a, b) => a.id.localeCompare(b.id));
+        return docsDelDia;
+    }
+
+    function normalizarFecha(raw) {
+        let prefijo = raw.replace(/[^0-9]/g, ''); 
+        if (prefijo.length === 8 && prefijo.startsWith("20")) {
+            prefijo = prefijo.substring(2);
+        }
+        return prefijo;
+    }
+
+    // =========================================================
+    // 1. BOTÓN: DESCARGAR ARCHIVO CSV
     // =========================================================
     btnDescargar.addEventListener('click', async function() {
-        let rawFecha = fechaInput.value.trim();
-        let prefijoDoc = rawFecha.replace(/[^0-9]/g, ''); 
-        if (prefijoDoc.length === 8 && prefijoDoc.startsWith("20")) {
-            prefijoDoc = prefijoDoc.substring(2);
-        }
-
+        let prefijoDoc = normalizarFecha(fechaInput.value.trim());
         if (prefijoDoc.length !== 6) {
-            alert("Ingresa una fecha con formato AAMMDD (ejemplo: 26_10_12 o 261012).");
+            alert("Ingresa una fecha con formato AAMMDD (ej: 26_10_12 o 261012).");
             return;
         }
 
         btnDescargar.disabled = true;
-        btnDescargar.style.background = "#484f58";
+        btnGraficar.disabled = true;
         progressContainer.style.display = "block";
         progressBar.style.width = "10%";
-        downloadStatus.innerText = `Buscando paquetes de '${prefijoDoc}' en Firestore...`;
+        downloadStatus.innerText = `Buscando paquetes de '${prefijoDoc}'...`;
 
         try {
-            const docsDelDia = [];
-            let pageToken = "";
-            let pagina = 1;
-
-            // Bucle que recorre TODAS las páginas de Firestore hasta agotar los datos
-            do {
-                downloadStatus.innerText = `Consultando página ${pagina} de la base de datos... (${docsDelDia.length} encontrados)`;
-                progressBar.style.width = `${Math.min(15 + pagina * 20, 85)}%`;
-
-                let urlRest = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/historico?pageSize=300`;
-                if (pageToken) {
-                    urlRest += `&pageToken=${encodeURIComponent(pageToken)}`;
-                }
-
-                const resp = await fetch(urlRest);
-                if (!resp.ok) throw new Error("Error en respuesta HTTP: " + resp.status);
-
-                const data = await resp.json();
-                const docs = data.documents || [];
-
-                docs.forEach(doc => {
-                    const docId = doc.name.split('/').pop();
-                    if (docId.startsWith(prefijoDoc) && doc.fields && doc.fields.datos_csv) {
-                        docsDelDia.push({
-                            id: docId,
-                            contenido: doc.fields.datos_csv.stringValue || ""
-                        });
-                    }
-                });
-
-                // Si hay más páginas, Firestore entrega un nuevo pageToken
-                pageToken = data.nextPageToken || "";
-                pagina++;
-
-            } while (pageToken);
-
-            if (docsDelDia.length === 0) {
-                downloadStatus.innerText = `No se encontraron datos para el día ${rawFecha}.`;
+            const docs = await obtenerDatosDeFirestore(prefijoDoc);
+            if (docs.length === 0) {
+                downloadStatus.innerText = `No se encontraron datos para ${prefijoDoc}.`;
                 progressBar.style.width = "0%";
-                btnDescargar.disabled = false;
-                btnDescargar.style.background = "#1f6feb";
                 return;
             }
 
-            // Orden cronológico estricto
-            docsDelDia.sort((a, b) => a.id.localeCompare(b.id));
-
-            progressBar.style.width = "90%";
-            downloadStatus.innerText = `Uniendo ${docsDelDia.length} paquetes de ${rawFecha}...`;
-
-            // Cabecera CSV para MATLAB
             let csvFinal = "Timestamp,Temp_N1_Ext,Hum_N1_Ext,Temp_N2_Int,Hum_N2_Int,ADC_N3,PWM_Hum,PWM_Vent,EKF_Temp,EKF_Hum,EKF_Tw\n";
-
-            docsDelDia.forEach(item => {
-                let txt = item.contenido.trim();
-                if (txt.length > 0) {
-                    csvFinal += txt + "\n";
-                }
+            docs.forEach(item => {
+                csvFinal += item.contenido.trim() + "\n";
             });
 
-            // Disparar descarga directa
             const blob = new Blob([csvFinal], { type: 'text/csv;charset=utf-8;' });
             const urlBlob = URL.createObjectURL(blob);
             const a = document.createElement("a");
@@ -253,16 +267,145 @@
             document.body.removeChild(a);
 
             progressBar.style.width = "100%";
-            downloadStatus.innerText = `¡Descarga completa! Se unieron ${docsDelDia.length} archivos de ${rawFecha}.`;
-
+            downloadStatus.innerText = `¡CSV descargado! Se unieron ${docs.length} paquetes.`;
         } catch (err) {
             console.error(err);
             downloadStatus.innerText = "Error: " + err.message;
-            progressBar.style.width = "0%";
         } finally {
             btnDescargar.disabled = false;
-            btnDescargar.style.background = "#1f6feb";
+            btnGraficar.disabled = false;
         }
     });
+
+    // =========================================================
+    // 2. BOTÓN: GRAFICAR DÍA (3 SUBPLOTS EN LA PÁGINA)
+    // =========================================================
+    btnGraficar.addEventListener('click', async function() {
+        let prefijoDoc = normalizarFecha(fechaInput.value.trim());
+        if (prefijoDoc.length !== 6) {
+            alert("Ingresa una fecha con formato AAMMDD (ej: 26_10_12 o 261012).");
+            return;
+        }
+
+        btnDescargar.disabled = true;
+        btnGraficar.disabled = true;
+        progressContainer.style.display = "block";
+        progressBar.style.width = "10%";
+        downloadStatus.innerText = `Cargando datos para graficar ${prefijoDoc}...`;
+
+        try {
+            const docs = await obtenerDatosDeFirestore(prefijoDoc);
+            if (docs.length === 0) {
+                downloadStatus.innerText = `No se encontraron datos para ${prefijoDoc}.`;
+                progressBar.style.width = "0%";
+                return;
+            }
+
+            progressBar.style.width = "85%";
+            downloadStatus.innerText = `Procesando ${docs.length} paquetes para los gráficos...`;
+
+            // Parsear las columnas CSV
+            const t = [], Text = [], Tint = [], Tekf = [];
+            const Hext = [], Hint = [], Hekf = [];
+            const Phum = [], Pvent = [];
+
+            docs.forEach(item => {
+                const lineas = item.contenido.split('\n');
+                lineas.forEach(l => {
+                    const row = l.trim();
+                    if (!row || row.startsWith("Timestamp") || row.startsWith("HEADER")) return;
+                    const c = row.split(',');
+                    if (c.length >= 10) {
+                        t.push(c[0].trim());
+                        Text.push(parseFloat(c[1]) || null);
+                        Hext.push(parseFloat(c[2]) || null);
+                        Tint.push(parseFloat(c[3]) || null);
+                        Hint.push(parseFloat(c[4]) || null);
+                        Phum.push(parseFloat(c[6]) || null);
+                        Pvent.push(parseFloat(c[7]) || null);
+                        Tekf.push(parseFloat(c[8]) || null);
+                        Hekf.push(parseFloat(c[9]) || null);
+                    }
+                });
+            });
+
+            // Configuración visual estética común
+            const layoutComun = {
+                paper_bgcolor: '#0d1117',
+                plot_bgcolor: '#0d1117',
+                font: { color: '#c9d1d9', family: 'system-ui, sans-serif' },
+                margin: { t: 40, b: 35, l: 55, r: 25 },
+                xaxis: { gridcolor: '#21262d', showgrid: true },
+                yaxis: { gridcolor: '#21262d', showgrid: true }
+            };
+
+            // 1. Gráfico de Temperaturas
+            const dataTemp = [
+                { x: t, y: Text, name: 'Temp Ext (N1)', mode: 'lines', line: { color: '#f85149', width: 1.2 } },
+                { x: t, y: Tint, name: 'Temp Int (N2)', mode: 'lines', line: { color: '#58a6ff', width: 1.5 } },
+                { x: t, y: Tekf, name: 'EKF Temp Estimada', mode: 'lines', line: { color: '#ffffff', dash: 'dash', width: 1.5 } }
+            ];
+            const layoutTemp = Object.assign({}, layoutComun, {
+                title: { text: `<b>Temperaturas (°C)</b> - Día ${prefijoDoc}`, font: { size: 13, color: '#58a6ff' } },
+                yaxis: Object.assign({}, layoutComun.yaxis, { title: 'Temperatura (°C)' })
+            });
+
+            // 2. Gráfico de Humedad
+            const dataHum = [
+                { x: t, y: Hext, name: 'Hum Ext (N1)', mode: 'lines', line: { color: '#3fb950', width: 1.2 } },
+                { x: t, y: Hint, name: 'Hum Int (N2)', mode: 'lines', line: { color: '#58a6ff', width: 1.5 } },
+                { x: t, y: Hekf, name: 'EKF Hum Estimada', mode: 'lines', line: { color: '#ffffff', dash: 'dash', width: 1.5 } }
+            ];
+            const layoutHum = Object.assign({}, layoutComun, {
+                title: { text: `<b>Humedad Relativa (%)</b> - Día ${prefijoDoc}`, font: { size: 13, color: '#3fb950' } },
+                yaxis: Object.assign({}, layoutComun.yaxis, { title: 'Humedad (%)', range: [-5, 105] })
+            });
+
+            // 3. Gráfico de Actuadores PWM
+            const dataAct = [
+                { x: t, y: Phum,  name: 'PWM Humidificador (%)', mode: 'lines', line: { color: '#388bfd', width: 1.5 } },
+                { x: t, y: Pvent, name: 'PWM Ventilador (%)',    mode: 'lines', line: { color: '#d29922', width: 1.5 } }
+            ];
+            const layoutAct = Object.assign({}, layoutComun, {
+                title: { text: `<b>Esfuerzo de Control (Actuadores PWM)</b> - Día ${prefijoDoc}`, font: { size: 13, color: '#d29922' } },
+                yaxis: Object.assign({}, layoutComun.yaxis, { title: 'PWM (%)', range: [-5, 105] })
+            });
+
+            // Renderizar con Plotly
+            chartArea.style.display = "block";
+            Plotly.newPlot('plot-temp', dataTemp, layoutTemp, { responsive: true });
+            Plotly.newPlot('plot-hum',  dataHum,  layoutHum,  { responsive: true });
+            Plotly.newPlot('plot-act',  dataAct,  layoutAct,  { responsive: true });
+
+            fechaActualGraficada = prefijoDoc;
+            btnDescargarImg.style.display = "inline-block";
+
+            progressBar.style.width = "100%";
+            downloadStatus.innerText = `¡Gráficos generados exitosamente! (${t.length} muestras ploteadas).`;
+        } catch (err) {
+            console.error(err);
+            downloadStatus.innerText = "Error al graficar: " + err.message;
+        } finally {
+            btnDescargar.disabled = false;
+            btnGraficar.disabled = false;
+        }
+    });
+
+    // =========================================================
+    // 3. BOTÓN: DESCARGAR IMAGEN (PNG) EN ALTA RESOLUCIÓN
+    // =========================================================
+    btnDescargarImg.addEventListener('click', function() {
+        if (!fechaActualGraficada) return;
+        
+        // Exporta el gráfico de temperaturas y humedad como PNG
+        Plotly.downloadImage('plot-temp', { format: 'png', width: 1200, height: 400, filename: `Grafica_Temp_${fechaActualGraficada}` });
+        setTimeout(() => {
+            Plotly.downloadImage('plot-hum', { format: 'png', width: 1200, height: 400, filename: `Grafica_Hum_${fechaActualGraficada}` });
+        }, 500);
+        setTimeout(() => {
+            Plotly.downloadImage('plot-act', { format: 'png', width: 1200, height: 350, filename: `Grafica_PWM_${fechaActualGraficada}` });
+        }, 1000);
+    });
+
 })();
 </script>
